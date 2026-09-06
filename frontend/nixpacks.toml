@@ -1,0 +1,12 @@
+[providers]
+nodejs = "20"
+
+[build]
+cmds = ["npm ci"]
+
+[start]
+cmd = "npm run start"
+
+[variables]
+NODE_ENV = "production"
+PORT = "3000"

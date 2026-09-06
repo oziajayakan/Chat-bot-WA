@@ -1,0 +1,27 @@
+# Railway monorepo config
+# Deploy dengan 2 services: backend + frontend
+# Setiap service arahkan ke folder masing-masing
+
+[project]
+name = "chatbot-assistant"
+
+# Service 1: Backend (Node.js + Baileys)
+[[services]]
+name = "backend"
+sourceDir = "backend"
+builder = "NIXPACKS"
+startCommand = "node src/server.js"
+healthcheckPath = "/health"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+# Service 2: Frontend (Next.js standalone)
+[[services]]
+name = "frontend"
+sourceDir = "frontend"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+startCommand = "node server.js"
+healthcheckPath = "/"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

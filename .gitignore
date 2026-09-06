@@ -1,0 +1,5 @@
+# Root
+.DS_Store
+*.log
+
+# Backend & Frontend masing-masing punya .gitignore sendiri
