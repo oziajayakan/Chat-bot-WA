@@ -2,6 +2,8 @@
 
 Panduan deploy **backend + frontend dalam 1 platform Railway** (tanpa Vercel).
 
+> ✅ **Railpack v0.39.0 ready** - monorepo dengan 2 services otomatis terdeteksi.
+
 ---
 
 ## 📋 Arsitektur
@@ -29,6 +31,31 @@ Panduan deploy **backend + frontend dalam 1 platform Railway** (tanpa Vercel).
 
 ---
 
+## 🏗️ Struktur Monorepo (Railpack-Compatible)
+
+```
+chatbot-assistant/
+├── railway.toml          ← Root config: 2 services dengan rootDirectory
+├── RAILWAY_DEPLOY.md
+├── README.md
+├── backend/
+│   ├── railpack.toml     ← Optional: explicit config
+│   ├── railway.json      ← Backup config
+│   ├── package.json      ← punya "start": "node src/server.js"
+│   └── src/
+└── frontend/
+    ├── railpack.toml     ← Optional: explicit config
+    ├── railway.json      ← Backup config
+    ├── package.json      ← punya "start": "node server.js"
+    ├── next.config.js    ← output: 'standalone'
+    ├── server.js         ← Custom server untuk standalone
+    └── src/
+```
+
+> **⚠️ Penting**: JANGAN taruh `start.sh`, `Dockerfile`, atau `Procfile` di root. Railpack akan bingung. Config harus spesifik di subdirectory atau via `railway.toml` root.
+
+---
+
 ## 🚀 Langkah Deploy
 
 ### 1️⃣ Persiapan Repo
@@ -46,8 +73,16 @@ git push -u origin main
 1. Buka https://railway.app → **New Project** → **Deploy from GitHub repo**
 2. Pilih repository Anda
 3. Railway akan **scan** `railway.toml` dan otomatis membuat 2 services:
-   - `backend`
-   - `frontend`
+   - `backend` (rootDirectory: `backend`)
+   - `frontend` (rootDirectory: `frontend`)
+4. Railpack akan deteksi Node.js di setiap subdirectory → auto-build
+
+**Jika `railway.toml` tidak ter-detect:**
+
+Cara manual:
+1. Klik **+ New** → **GitHub Repo** → pilih repo
+2. Klik service baru → **Settings** → **Root Directory** → set ke `backend`
+3. Ulangi untuk frontend dengan rootDirectory `frontend`
 
 ### 3️⃣ Konfigurasi Backend Service
 
@@ -133,11 +168,41 @@ Sekarang folder `/data` akan persistent across deploys.
 
 ## 🔧 Troubleshooting Railway
 
+### ⚠️ Error: "Railpack could not determine how to build the app" / "Script start.sh not found"
+
+Penyebab: Railpack menganalisis root directory project, bukan subdirectory service. Fix:
+
+1. **Pastikan `railway.toml` ada di root** dengan `rootDirectory` di setiap service:
+   ```toml
+   [[services]]
+   name = "backend"
+   rootDirectory = "backend"
+   ```
+
+2. **Hapus `start.sh`, `Procfile`, `Dockerfile`** dari root project (kalau ada).
+
+3. **Pastikan setiap subdirectory punya `package.json`** dengan script `start` yang valid:
+   - `backend/package.json` → `"start": "node src/server.js"`
+   - `frontend/package.json` → `"start": "node server.js"`
+
+4. **Optional**: Taruh `railpack.toml` di setiap subdirectory sebagai fallback:
+   ```toml
+   [build]
+   provider = "node@20"
+
+   [start]
+   cmd = "node src/server.js"
+   ```
+
+5. **Manual override** via Railway dashboard:
+   - Klik service → **Settings** → **Root Directory** → `backend` (atau `frontend`)
+   - **Build Command** (jika perlu): `npm ci`
+   - **Start Command**: `node src/server.js`
+
 ### Service "Deploy Failed"
 - Cek tab **Logs** di Railway dashboard
 - Pastikan `package.json` ada di root folder service
 - Backend: cek `railway.json` di `backend/`
-- Frontend: cek `Dockerfile` di `frontend/`
 
 ### QR Code tidak muncul di dashboard
 - Tunggu 10-20 detik setelah deploy pertama (WA butuh waktu inisialisasi)
@@ -149,13 +214,13 @@ Sekarang folder `/data` akan persistent across deploys.
 - Format: `https://xxx.up.railway.app` (tanpa trailing slash)
 
 ### Build Frontend Gagal (Next.js)
-- Railway **harus pakai Dockerfile** untuk Next.js (sudah dikonfig)
-- Jika masih gagal, cek log → biasanya error `output: standalone` belum aktif
-- Solusi: pastikan `next.config.js` ada `output: 'standalone'`
+- Pastikan `next.config.js` ada `output: 'standalone'`
+- Cek log build → error biasanya tentang missing static files atau dependencies
+- Solusi: build script di package.json sudah include `cp -r .next/static .next/standalone/.next/`
 
 ### Session Hilang Setelah Restart
 - Pastikan Volume sudah ter-mount di `/data`
-- Cek `DATA_PATH=/data` ada di Variables backend
+- Cek `DATA_PATH=/data` ada di Variables backend</new_str>
 
 ---
 
@@ -184,3 +249,39 @@ git push
 ```
 
 Railway akan rebuild + redeploy service yang berubah.
+
+---
+
+## 🔍 Cara Kerja Railpack v0.39.0
+
+Railpack adalah build system baru Railway (menggantikan Nixpacks). Cara kerjanya:
+
+1. **Deteksi bahasa** otomatis dari file di rootDirectory
+   - Melihat `package.json` → deteksi Node.js
+   - Melihat `requirements.txt` → deteksi Python
+   - Dst.
+
+2. **Auto-install dependencies**
+   - Node.js: `npm ci` atau `npm install`
+
+3. **Cari start command**
+   - Dari `package.json` script `"start"`
+   - Fallback ke `railpack.toml` `[start] cmd`
+   - Fallback ke `Procfile` `web:`
+   - Fallback ke `Dockerfile` `CMD`
+
+4. **Build & Run**
+   - Untuk Next.js dengan `output: 'standalone'`: build artifacts di `.next/standalone/`
+   - Custom `server.js` handle mounting static files + start built server
+
+### Kapan Perlu `railpack.toml` Explicit?
+
+- Kalau Railpack salah deteksi bahasa
+- Kalau mau override `start command`
+- Kalau butuh custom env saat build
+
+Untuk project ini, Railpack harusnya auto-detect karena:
+- ✅ `package.json` ada di setiap subdir
+- ✅ Script `"start"` terdefinisi
+- ✅ Node.js dependencies jelas
+- ✅ `rootDirectory` di `railway.toml` mengarahkan Railpack ke subdir yang benar</new_str>

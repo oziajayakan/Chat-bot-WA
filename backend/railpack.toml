@@ -1,0 +1,8 @@
+# Railpack v0.39.0 config untuk backend
+# Force Node.js provider dan start command
+
+[build]
+provider = "node@20"
+
+[start]
+cmd = "node src/server.js"

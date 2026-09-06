@@ -1,0 +1,7 @@
+# Railpack v0.39.0 config untuk frontend Next.js
+
+[build]
+provider = "node@20"
+
+[start]
+cmd = "node server.js"

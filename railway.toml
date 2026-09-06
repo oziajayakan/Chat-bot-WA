@@ -1,27 +1,36 @@
-# Railway monorepo config
-# Deploy dengan 2 services: backend + frontend
-# Setiap service arahkan ke folder masing-masing
+# Railway monorepo config (Railpack v0.39.0)
+# 2 services dalam 1 repo: backend + frontend
+# Setiap service pakai rootDirectory agar Railpack analisis subdir yang benar
 
 [project]
 name = "chatbot-assistant"
 
-# Service 1: Backend (Node.js + Baileys)
+# ============ BACKEND SERVICE ============
 [[services]]
 name = "backend"
-sourceDir = "backend"
-builder = "NIXPACKS"
+rootDirectory = "backend"
+
+[services.build]
+builder = "RAILPACK"
+
+[services.deploy]
 startCommand = "node src/server.js"
 healthcheckPath = "/health"
+healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 
-# Service 2: Frontend (Next.js standalone)
+# ============ FRONTEND SERVICE ============
 [[services]]
 name = "frontend"
-sourceDir = "frontend"
-builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+rootDirectory = "frontend"
+
+[services.build]
+builder = "RAILPACK"
+
+[services.deploy]
 startCommand = "node server.js"
 healthcheckPath = "/"
+healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
